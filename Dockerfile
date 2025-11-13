@@ -15,13 +15,18 @@ RUN apk add --no-cache \
     nginx \
     supervisor \
     postgresql-client \
+    postgresql-dev \
     libpng-dev \
     libjpeg-turbo-dev \
     freetype-dev \
     libzip-dev \
     oniguruma-dev \
+    autoconf \
+    g++ \
+    make \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo pdo_pgsql pgsql mbstring zip gd exif pcntl bcmath opcache
+    && docker-php-ext-install -j$(nproc) pdo pdo_pgsql pgsql mbstring zip gd exif pcntl bcmath opcache \
+    && apk del autoconf g++ make postgresql-dev
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
