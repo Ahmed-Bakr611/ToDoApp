@@ -8,10 +8,41 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: todo_app
+      MYSQL_USER: todo_user
+      MYSQL_PASSWORD: secret
+    volumes:
+      - db_data:/var/lib/mysql
     ports:
       - 3306:3306
+
   adminer:
     image: adminer
     restart: always
     ports:
       - 8080:8080
+
+  php:
+    image: php:8.2-cli
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    depends_on:
+      - mysql
+    # keep container running so you can exec into it to run artisan / composer
+    command: tail -f /dev/null
+    ports:
+      # map artisan serve default port so you can run `php artisan serve --host=0.0.0.0 --port=8000`
+      - 8000:8000
+
+  node:
+    image: node:18-alpine
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    # keep alive so you can run `docker-compose exec node npm install` and `npm run build`
+    command: tail -f /dev/null
+
+volumes:
+  db_data:
+    name: todoapp_db_data
