@@ -43,7 +43,7 @@ RUN composer dump-autoload --optimize
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache \
     && chmod -R 775 /var/www/storage /var/www/bootstrap/cache
 
-# Create startup script with database wait
+# Create startup script with database wait and session table creation
 RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
@@ -60,7 +60,18 @@ if [ $attempt -eq $max_attempts ]; then\n\
   echo "Failed to connect to database after $max_attempts attempts"\n\
   echo "Starting server anyway..."\n\
 else\n\
-  echo "Database is up - running migrations"\n\
+  echo "Database is up!"\n\
+  \n\
+  echo "Publishing session migration..."\n\
+  php artisan session:table 2>/dev/null || true\n\
+  \n\
+  echo "Publishing cache migration..."\n\
+  php artisan cache:table 2>/dev/null || true\n\
+  \n\
+  echo "Publishing queue migration..."\n\
+  php artisan queue:table 2>/dev/null || true\n\
+  \n\
+  echo "Running migrations..."\n\
   php artisan migrate --force\n\
 fi\n\
 \n\
