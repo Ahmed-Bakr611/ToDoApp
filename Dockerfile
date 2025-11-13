@@ -12,7 +12,7 @@ FROM php:8.2-fpm AS backend
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     git curl unzip libpq-dev libonig-dev libzip-dev zip \
-    && docker-php-ext-install pdo pdo_mysql mbstring zip
+    && docker-php-ext-install pdo pdo_pgsql mbstring zip
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -21,6 +21,10 @@ WORKDIR /var/www/html
 
 # Copy app files
 COPY . .
+
+# Make storage and cache writable
+RUN chown -R www-data:www-data storage bootstrap/cache
+RUN chmod -R 775 storage bootstrap/cache
 
 # Copy built frontend from Stage 1
 COPY --from=frontend /app/public/build ./public/build
@@ -34,6 +38,6 @@ RUN php artisan config:cache
 RUN php artisan route:cache
 RUN php artisan view:cache
 
-# Expose port if using artisan serve
+# Expose port for Render
 EXPOSE 8000
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
