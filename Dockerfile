@@ -22,22 +22,27 @@ WORKDIR /var/www/html
 # Copy app files
 COPY . .
 
-# Make storage and cache writable
-RUN chown -R www-data:www-data storage bootstrap/cache
-RUN chmod -R 775 storage bootstrap/cache
+# Copy production env
+COPY .env.production .env
 
-# Copy built frontend from Stage 1
+# Make storage and cache writable
+RUN chown -R www-data:www-data storage bootstrap/cache \
+ && chmod -R 775 storage bootstrap/cache
+
+# Copy frontend
 COPY --from=frontend /app/public/build ./public/build
 
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Laravel production setup
-RUN cp .env.example .env && php artisan key:generate
-RUN php artisan config:cache
-RUN php artisan route:cache
-RUN php artisan view:cache
+# Clear caches
+RUN php artisan config:clear \
+ && php artisan cache:clear \
+ && php artisan route:clear \
+ && php artisan view:clear
 
-# Expose port if using artisan serve
+# Expose port
 EXPOSE 8000
+
+# Run Laravel
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
