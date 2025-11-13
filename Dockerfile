@@ -1,50 +1,108 @@
 # Stage 1 - Build Frontend (Vite)
-FROM node:18 AS frontend
+FROM node:18-alpine AS frontend
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci --only=production
 COPY . .
 RUN npm run build
 
-# Stage 2 - Backend (Laravel + PHP)
-FROM php:8.2-cli AS backend
+# Stage 2 - Backend (Laravel + PHP-FPM + Nginx)
+FROM php:8.2-fpm-alpine AS backend
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
-    git curl unzip libpq-dev libonig-dev libzip-dev zip \
-    libpng-dev libjpeg-dev libfreetype6-dev \
+RUN apk add --no-cache \
+    nginx \
+    supervisor \
     postgresql-client \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    libzip-dev \
+    oniguruma-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-configure pgsql -with-pgsql=/usr/local/pgsql \
-    && docker-php-ext-install pdo pdo_pgsql pgsql mbstring zip gd exif pcntl bcmath \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && docker-php-ext-install pdo pdo_pgsql pgsql mbstring zip gd exif pcntl bcmath opcache
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+# Configure PHP for production
+RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.max_accelerated_files=10000" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.revalidate_freq=0" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/opcache.ini
+
 WORKDIR /var/www
 
-# Copy composer files first (for better caching)
+# Copy composer files
 COPY composer.json composer.lock ./
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-scripts
+# Install PHP dependencies (production only)
+RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interaction
 
-# Copy app files
+# Copy application code
 COPY . .
-
-# Copy built frontend from Stage 1
 COPY --from=frontend /app/public/build ./public/build
 
-# Run composer scripts
+# Run Laravel post-install scripts
 RUN composer dump-autoload --optimize
 
-# Set proper permissions
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache \
-    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache
+# Set permissions
+RUN chown -R www-data:www-data /var/www \
+    && chmod -R 755 /var/www/storage /var/www/bootstrap/cache
 
-# Create startup script - IMPROVED VERSION
-RUN echo '#!/bin/bash\n\
+# Configure Nginx
+RUN echo 'server {\n\
+    listen 8080;\n\
+    server_name _;\n\
+    root /var/www/public;\n\
+    index index.php;\n\
+\n\
+    client_max_body_size 10M;\n\
+\n\
+    location / {\n\
+        try_files $uri $uri/ /index.php?$query_string;\n\
+    }\n\
+\n\
+    location ~ \.php$ {\n\
+        fastcgi_pass 127.0.0.1:9000;\n\
+        fastcgi_index index.php;\n\
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;\n\
+        include fastcgi_params;\n\
+    }\n\
+\n\
+    location ~ /\.(?!well-known).* {\n\
+        deny all;\n\
+    }\n\
+}' > /etc/nginx/http.d/default.conf
+
+# Configure Supervisor
+RUN echo '[supervisord]\n\
+nodaemon=true\n\
+user=root\n\
+logfile=/dev/stdout\n\
+logfile_maxbytes=0\n\
+\n\
+[program:php-fpm]\n\
+command=php-fpm\n\
+autostart=true\n\
+autorestart=true\n\
+stdout_logfile=/dev/stdout\n\
+stdout_logfile_maxbytes=0\n\
+stderr_logfile=/dev/stderr\n\
+stderr_logfile_maxbytes=0\n\
+\n\
+[program:nginx]\n\
+command=nginx -g "daemon off;"\n\
+autostart=true\n\
+autorestart=true\n\
+stdout_logfile=/dev/stdout\n\
+stdout_logfile_maxbytes=0\n\
+stderr_logfile=/dev/stderr\n\
+stderr_logfile_maxbytes=0' > /etc/supervisord.conf
+
+# Create startup script
+RUN echo '#!/bin/sh\n\
 set -e\n\
 \n\
 echo "================================="\n\
@@ -52,87 +110,35 @@ echo "Starting Laravel Application"\n\
 echo "================================="\n\
 \n\
 # Wait for database\n\
-echo "Step 1: Waiting for database connection..."\n\
-max_attempts=30\n\
-attempt=0\n\
-\n\
-while [ $attempt -lt $max_attempts ]; do\n\
-  if pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" > /dev/null 2>&1; then\n\
-    echo "✓ Database is ready!"\n\
-    break\n\
+echo "Waiting for database..."\n\
+timeout=60\n\
+while ! pg_isready -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USERNAME" -t 1 > /dev/null 2>&1; do\n\
+  timeout=$((timeout - 1))\n\
+  if [ $timeout -le 0 ]; then\n\
+    echo "Database connection timeout"\n\
+    exit 1\n\
   fi\n\
-  echo "Database not ready yet (attempt $((attempt + 1))/$max_attempts)..."\n\
-  sleep 2\n\
-  attempt=$((attempt + 1))\n\
+  sleep 1\n\
 done\n\
-\n\
-if [ $attempt -eq $max_attempts ]; then\n\
-  echo "✗ Failed to connect to database after $max_attempts attempts"\n\
-  echo "WARNING: Continuing anyway..."\n\
-fi\n\
-\n\
-# Clear any existing cache\n\
-echo ""\n\
-echo "Step 2: Clearing caches..."\n\
-php artisan config:clear || true\n\
-php artisan route:clear || true\n\
-php artisan view:clear || true\n\
-php artisan cache:clear || true\n\
-echo "✓ Caches cleared"\n\
-\n\
-# Create migration files for Laravel built-in tables\n\
-echo ""\n\
-echo "Step 3: Creating system table migrations..."\n\
-php artisan session:table --force 2>&1 | grep -v "already exists" || echo "✓ Session table migration ready"\n\
-php artisan cache:table --force 2>&1 | grep -v "already exists" || echo "✓ Cache table migration ready"\n\
-php artisan queue:table --force 2>&1 | grep -v "already exists" || echo "✓ Queue table migration ready"\n\
-php artisan queue:failed-table --force 2>&1 | grep -v "already exists" || echo "✓ Failed jobs table migration ready"\n\
+echo "✓ Database connected"\n\
 \n\
 # Run migrations\n\
-echo ""\n\
-echo "Step 4: Running database migrations..."\n\
-php artisan migrate --force\n\
-echo "✓ Migrations completed"\n\
+echo "Running migrations..."\n\
+php artisan migrate --force --no-interaction\n\
+echo "✓ Migrations complete"\n\
 \n\
-# Cache configuration\n\
-echo ""\n\
-echo "Step 5: Caching configurations..."\n\
+# Cache configurations\n\
+echo "Caching configurations..."\n\
 php artisan config:cache\n\
 php artisan route:cache\n\
 php artisan view:cache\n\
-echo "✓ Configurations cached"\n\
+echo "✓ Cache complete"\n\
 \n\
-# Start server\n\
-echo ""\n\
-echo "================================="\n\
-echo "Starting server on port ${PORT:-8080}"\n\
-echo "================================="\n\
-php artisan serve --host=0.0.0.0 --port=${PORT:-8080}' > /usr/local/bin/start.sh \
+# Start services\n\
+echo "Starting services..."\n\
+exec /usr/bin/supervisord -c /etc/supervisord.conf' > /usr/local/bin/start.sh \
     && chmod +x /usr/local/bin/start.sh
 
-# Expose port
 EXPOSE 8080
 
 CMD ["/usr/local/bin/start.sh"]
-```
-
-### Key Improvements:
-
-1. **Uses `pg_isready`** to properly check PostgreSQL connection
-2. **Forces creation** of migration files with `--force` flag
-3. **Better error handling** - won't fail if files already exist
-4. **Clear logging** so you can see what's happening in Render logs
-5. **Clears caches first** before creating migrations
-
----
-
-## Alternative: Simpler Solution (Change Session Driver)
-
-If you don't want to deal with database sessions, change your Render environment variables:
-
-**In Render Dashboard → Environment:**
-
-Change:
-```
-SESSION_DRIVER=cookie
-CACHE_STORE=array
