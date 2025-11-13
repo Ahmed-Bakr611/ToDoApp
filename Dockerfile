@@ -38,10 +38,6 @@ RUN php artisan config:cache
 RUN php artisan route:cache
 RUN php artisan view:cache
 
-<<<<<<< HEAD:DockerFile
 # Expose port if using artisan serve
-=======
-# Expose port for Render
->>>>>>> 39cb1dc7c62cd598d749f03379dc644f3ae04fcb:Dockerfile
 EXPOSE 8000
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
