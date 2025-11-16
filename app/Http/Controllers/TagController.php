@@ -13,7 +13,7 @@ class TagController extends Controller
     private EloquentGenericCrudRepository $repo;
 
     // Fixed page size constant
-    private const PAGE_SIZE = 5;
+    private const PAGE_SIZE = 500;
 
     public function __construct()
     {

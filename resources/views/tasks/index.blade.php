@@ -63,9 +63,11 @@
               <!-- Task Content -->
               <div class="flex-1 min-w-0">
                 <div class="flex items-start justify-between gap-4 mb-2">
-                  <h3 class="text-lg font-semibold {{ $task->completed ? 'text-gray-500 line-through' : 'text-gray-900' }}">
-                    {{ $task->title }}
-                  </h3>
+<a href="{{ route('tasks.show', $task->id) }}">
+  <h3 class="text-lg font-semibold {{ $task->completed ? 'text-gray-500 line-through' : 'text-gray-900' }}">
+    {{ $task->title }}
+  </h3>
+</a>
                   
                   <!-- Actions -->
                   <div class="flex gap-2 flex-shrink-0">

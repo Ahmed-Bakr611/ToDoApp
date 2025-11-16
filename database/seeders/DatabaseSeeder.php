@@ -25,8 +25,8 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // Create 50 tags
-        $tags = Tag::factory()->count(50)->create();
+        // Create 10k tags
+        $tags = Tag::factory()->count(10000)->create();
         $tagIds = $tags->pluck('id')->all();
 
         // Disable query log for performance
