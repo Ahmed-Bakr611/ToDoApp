@@ -26,14 +26,14 @@ class DatabaseSeeder extends Seeder
         );
 
         // Create 10k tags
-        $tags = Tag::factory()->count(10000)->create();
+        $tags = Tag::factory()->count(50000)->create();
         $tagIds = $tags->pluck('id')->all();
 
         // Disable query log for performance
         DB::disableQueryLog();
 
         // Create 10,000 tasks for the user
-        $tasks = Task::factory()->count(10000)->create([
+        $tasks = Task::factory()->count(50000)->create([
             'user_id' => $user->id,
         ]);
 

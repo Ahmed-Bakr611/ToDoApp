@@ -38,30 +38,45 @@
           <p class="mt-1 text-sm text-gray-500">Provide additional details about this task</p>
         </div>
 
-        <!-- Tags Field -->
+        <!-- Tags Field with Search -->
         <div class="mb-6">
-          <label for="tags" class="block text-sm font-medium text-gray-700 mb-2">
+          <label for="tag-search" class="block text-sm font-medium text-gray-700 mb-2">
             Tags
           </label>
-          <select id="tags" name="tags[]" multiple
-            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 @error('tags') border-red-500 @enderror">
-            @foreach($tags as $tag)
-              <option value="{{ $tag->id }}" {{ in_array($tag->id, $selectedTags) ? 'selected' : '' }}
-                class="px-2 py-1 hover:bg-gray-100 cursor-pointer">
-                {{ $tag->name }}
-              </option>
-            @endforeach
-          </select>
+
+          <!-- Search Input -->
+          <div class="relative">
+            <input type="text" id="tag-search"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Search tags..." autocomplete="off">
+
+            <!-- Search Results Dropdown -->
+            <div id="tag-results"
+              class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto hidden">
+              <div id="tag-results-list">
+                <!-- Results will be inserted here -->
+              </div>
+              <div id="tag-loading" class="px-4 py-3 text-sm text-gray-500 text-center hidden">
+                Searching...
+              </div>
+              <div id="tag-no-results" class="px-4 py-3 text-sm text-gray-500 text-center hidden">
+                No tags found
+              </div>
+            </div>
+          </div>
+
           @error('tags')
             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
           @enderror
-          <p class="mt-1 text-sm text-gray-500">
-            Hold down the Ctrl (Windows) or Command (Mac) key to select multiple tags
-          </p>
 
           <!-- Selected Tags Display -->
           <div id="selected-tags-container" class="flex flex-wrap gap-2 mt-3">
             <!-- Selected tags will appear here -->
+          </div>
+
+          <!-- Hidden inputs for selected tags -->
+          <div id="hidden-tags-container">
+            <!-- Hidden inputs will be added here -->
           </div>
         </div>
 
@@ -73,9 +88,6 @@
           </a>
           <button type="submit"
             class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center gap-2 transition-colors">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
             Update Task
           </button>
         </div>
@@ -85,64 +97,204 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', function () {
-      const tagsSelect = document.getElementById('tags');
+      const tagSearch = document.getElementById('tag-search');
+      const tagResults = document.getElementById('tag-results');
+      const tagResultsList = document.getElementById('tag-results-list');
+      const tagLoading = document.getElementById('tag-loading');
+      const tagNoResults = document.getElementById('tag-no-results');
       const selectedTagsContainer = document.getElementById('selected-tags-container');
+      const hiddenTagsContainer = document.getElementById('hidden-tags-container');
 
-      // Function to update the selected tags display
-      function updateSelectedTags() {
-        // Clear the container
-        selectedTagsContainer.innerHTML = '';
+      let selectedTags = new Map(); // Store selected tags: id => name
+      let searchTimeout;
 
-        // Get selected options
-        const selectedOptions = Array.from(tagsSelect.selectedOptions);
+      // Initialize with existing task tags
+      const existingTags = @json($task->tags->map(function ($tag) {
+        return ['id' => $tag->id, 'name' => $tag->name];
+      }));
 
-        // Create a tag pill for each selected option
-        selectedOptions.forEach(option => {
-          const tagPill = document.createElement('div');
-          tagPill.className = 'inline-flex items-center bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm';
-          tagPill.innerHTML = `
-                  ${option.text}
-                  <button 
-                      type="button" 
-                      class="ml-2 bg-transparent border-none cursor-pointer text-gray-500 hover:text-gray-700 text-xs w-4 h-4 rounded-full flex items-center justify-center hover:bg-gray-300 transition-colors"
-                      data-value="${option.value}"
-                  >
-                      &times;
-                  </button>
-              `;
-          selectedTagsContainer.appendChild(tagPill);
-        });
+      existingTags.forEach(tag => {
+        selectedTags.set(tag.id.toString(), tag.name);
+      });
 
-        // Add event listeners to remove buttons
-        document.querySelectorAll('#selected-tags-container .bg-transparent').forEach(button => {
-          button.addEventListener('click', function () {
-            const valueToRemove = this.getAttribute('data-value');
-            const optionToDeselect = tagsSelect.querySelector(`option[value="${valueToRemove}"]`);
-            if (optionToDeselect) {
-              optionToDeselect.selected = false;
-              updateSelectedTags();
+      // Handle validation errors - restore old input
+      @if(old('tags'))
+        selectedTags.clear();
+        const oldTagIds = @json(old('tags'));
+        // Fetch names for old tag IDs
+        if (oldTagIds.length > 0) {
+          fetch(`{{ route('tags.fetch') }}?ids=${oldTagIds.join(',')}`, {
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json'
             }
+          })
+            .then(response => response.json())
+            .then(data => {
+              data.tags.forEach(tag => {
+                selectedTags.set(tag.id.toString(), tag.name);
+              });
+              updateSelectedTagsDisplay();
+            });
+        }
+      @else
+        updateSelectedTagsDisplay();
+      @endif
+
+      // Debounced search function
+      tagSearch.addEventListener('input', function () {
+        clearTimeout(searchTimeout);
+        const query = this.value.trim();
+
+        if (query.length < 2) {
+          tagResults.classList.add('hidden');
+          return;
+        }
+
+        tagLoading.classList.remove('hidden');
+        tagResultsList.innerHTML = '';
+        tagNoResults.classList.add('hidden');
+        tagResults.classList.remove('hidden');
+
+        searchTimeout = setTimeout(() => {
+          searchTags(query);
+        }, 300);
+      });
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', function (e) {
+        if (!tagSearch.contains(e.target) && !tagResults.contains(e.target)) {
+          tagResults.classList.add('hidden');
+        }
+      });
+
+      // Search tags via AJAX
+      function searchTags(query) {
+        fetch(`{{ route('tags.search') }}?q=${encodeURIComponent(query)}`, {
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+          }
+        })
+          .then(response => response.json())
+          .then(data => {
+            tagLoading.classList.add('hidden');
+
+            if (data.tags && data.tags.length > 0) {
+              renderTagResults(data.tags);
+              tagNoResults.classList.add('hidden');
+            } else {
+              tagResultsList.innerHTML = '';
+              tagNoResults.classList.remove('hidden');
+            }
+          })
+          .catch(error => {
+            console.error('Error searching tags:', error);
+            tagLoading.classList.add('hidden');
+            tagResultsList.innerHTML = '<div class="px-4 py-3 text-sm text-red-500">Error searching tags</div>';
           });
+      }
+
+      // Render search results
+      function renderTagResults(tags) {
+        tagResultsList.innerHTML = '';
+
+        tags.forEach(tag => {
+          const isSelected = selectedTags.has(tag.id.toString());
+
+          const resultItem = document.createElement('div');
+          resultItem.className = `px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center justify-between ${isSelected ? 'bg-blue-50' : ''}`;
+          resultItem.innerHTML = `
+              <span class="text-sm text-gray-900">${escapeHtml(tag.name)}</span>
+              ${isSelected ? '<span class="text-xs text-blue-600">✓ Selected</span>' : ''}
+            `;
+
+          if (!isSelected) {
+            resultItem.addEventListener('click', () => {
+              addTag(tag.id, tag.name);
+              tagSearch.value = '';
+              tagResults.classList.add('hidden');
+            });
+          }
+
+          tagResultsList.appendChild(resultItem);
         });
       }
 
-      // Initialize selected tags display
-      updateSelectedTags();
+      // Add a tag to selection
+      function addTag(id, name) {
+        selectedTags.set(id.toString(), name);
+        updateSelectedTagsDisplay();
+      }
 
-      // Update display when selection changes
-      tagsSelect.addEventListener('change', updateSelectedTags);
+      // Remove a tag from selection
+      function removeTag(id) {
+        selectedTags.delete(id.toString());
+        updateSelectedTagsDisplay();
+      }
+
+      // Update the display of selected tags
+      function updateSelectedTagsDisplay() {
+        // Update visual display
+        selectedTagsContainer.innerHTML = '';
+
+        selectedTags.forEach((name, id) => {
+          const tagPill = document.createElement('div');
+          tagPill.className = 'inline-flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm';
+          tagPill.innerHTML = `
+              ${escapeHtml(name)}
+              <button 
+                type="button" 
+                class="ml-2 bg-transparent border-none cursor-pointer text-blue-600 hover:text-blue-800 text-lg w-5 h-5 rounded-full flex items-center justify-center hover:bg-blue-200 transition-colors"
+                data-tag-id="${id}"
+              >
+                &times;
+              </button>
+            `;
+
+          const removeBtn = tagPill.querySelector('button');
+          removeBtn.addEventListener('click', () => removeTag(id));
+
+          selectedTagsContainer.appendChild(tagPill);
+        });
+
+        // Update hidden inputs for form submission
+        hiddenTagsContainer.innerHTML = '';
+        selectedTags.forEach((name, id) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'tags[]';
+          input.value = id;
+          hiddenTagsContainer.appendChild(input);
+        });
+      }
+
+      // Escape HTML to prevent XSS
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
     });
   </script>
 
   <style>
-    /* Custom styles for multiple select options */
-    select[multiple] option:checked {
-      background-color: #3b82f6;
-      color: white;
+    #tag-results::-webkit-scrollbar {
+      width: 8px;
     }
 
-    select[multiple] option:hover {
-      background-color: #f3f4f6;
+    #tag-results::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+
+    #tag-results::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 4px;
+    }
+
+    #tag-results::-webkit-scrollbar-thumb:hover {
+      background: #555;
     }
   </style>
 @endsection

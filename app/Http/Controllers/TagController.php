@@ -13,7 +13,7 @@ class TagController extends Controller
     private EloquentGenericCrudRepository $repo;
 
     // Fixed page size constant
-    private const PAGE_SIZE = 500;
+    private const PAGE_SIZE = 20;
 
     public function __construct()
     {
@@ -29,6 +29,21 @@ class TagController extends Controller
         $tags = Tag::withCount('tasks')->paginate(self::PAGE_SIZE);
 
         return view('tags.index', compact('tags'));
+
+
+        // $tags = DB::table('tags')
+        //     ->select(
+        //         'tags.id',
+        //         'tags.name',
+        //         'tags.created_at',
+        //         'tags.updated_at',
+        //         DB::raw('COUNT(task_tag.task_id) as tasks_count')
+        //     )
+        //     ->leftJoin('task_tag', 'task_tag.tag_id', '=', 'tags.id')
+        //     ->groupBy('tags.id', 'tags.name', 'tags.created_at', 'tags.updated_at')
+        //     ->paginate(self::PAGE_SIZE);
+
+        // return view('tags.index', compact('tags'));
     }
 
     /**
@@ -108,5 +123,55 @@ class TagController extends Controller
         return redirect()
             ->route('tags.index')
             ->with('success', 'Tag deleted successfully.');
+    }
+
+    /**
+     * Search tags by name
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function search(Request $request)
+    {
+        $query = $request->input('q', '');
+
+        // Minimum 2 characters for search
+        if (strlen($query) < 2) {
+            return response()->json(['tags' => []]);
+        }
+
+        // Search tags with pagination/limit
+        $tags = Tag::where('name', 'LIKE', "%{$query}%")
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->limit(50) // Limit results to 50 for performance
+            ->get();
+
+        return response()->json(['tags' => $tags]);
+    }
+
+    /**
+     * Fetch tags by IDs
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function fetch(Request $request)
+    {
+        $ids = $request->input('ids', '');
+
+        if (empty($ids)) {
+            return response()->json(['tags' => []]);
+        }
+
+        // Convert comma-separated string to array
+        $idsArray = explode(',', $ids);
+
+        // Fetch tags by IDs
+        $tags = Tag::whereIn('id', $idsArray)
+            ->select('id', 'name')
+            ->get();
+
+        return response()->json(['tags' => $tags]);
     }
 }
