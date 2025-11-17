@@ -32,7 +32,7 @@ This includes:
 ### 1. Clone the project
 
 ```
-git clone <your-repository>
+git clone https://github.com/Ahmed-Bakr611/ToDoApp.git
 cd ToDoApp
 ```
 
