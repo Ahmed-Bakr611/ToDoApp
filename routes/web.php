@@ -9,9 +9,15 @@ use App\Livewire\Tasks\TaskForm;
 use App\Livewire\Tasks\TaskDetail;
 use App\Livewire\Tags\TagList;
 use App\Livewire\Tags\TagForm;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 
+
+// Root route
+Route::get('/', function () {
+  return redirect()->route(Auth::check() ? 'tasks.index' : 'login');
+});
 
 // Guest routes (only accessible when not authenticated)
 Route::middleware('guest')->group(function () {
@@ -20,7 +26,6 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-  Route::get('/', fn() => redirect()->route('tasks.index'));
 
   Route::post('/logout', [UserController::class, 'logout'])->name('logout');
 
