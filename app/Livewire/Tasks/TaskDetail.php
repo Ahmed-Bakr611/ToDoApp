@@ -5,6 +5,7 @@ namespace App\Livewire\Tasks;
 use App\Models\Task;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
+use Livewire\Attributes\Redirect;
 
 class TaskDetail extends Component
 {
@@ -15,7 +16,8 @@ class TaskDetail extends Component
     return view('livewire.tasks.task-detail');
   }
 
-  public function deleteTask(): void
+  #[Redirect]
+  public function deleteTask()
   {
     $this->authorize('delete', $this->task);
 

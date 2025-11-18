@@ -5,6 +5,7 @@ namespace App\Livewire\Tags;
 use App\Models\Tag;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
+use Livewire\Attributes\Redirect;
 
 class TagForm extends Component
 {
@@ -24,7 +25,8 @@ class TagForm extends Component
     return view('livewire.tags.tag-form');
   }
 
-  public function save(): void
+  #[Redirect]
+  public function save()
   {
     $this->validate([
       'name' => 'required|string|max:255|unique:tags,name,' . ($this->tag->id ?? 'NULL'),

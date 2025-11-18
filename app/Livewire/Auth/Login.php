@@ -4,6 +4,7 @@ namespace App\Livewire\Auth;
 
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
+use Livewire\Attributes\Redirect;
 
 class Login extends Component
 {
@@ -16,6 +17,7 @@ class Login extends Component
     return view('livewire.auth.login');
   }
 
+  #[Redirect]
   public function login()
   {
     $this->validate([

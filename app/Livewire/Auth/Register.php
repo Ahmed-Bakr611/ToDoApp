@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Component;
+use Livewire\Attributes\Redirect;
 
 class Register extends Component
 {
@@ -19,6 +20,7 @@ class Register extends Component
     return view('livewire.auth.register');
   }
 
+  #[Redirect]
   public function register()
   {
     $this->validate([

@@ -6,6 +6,7 @@ use App\Models\Tag;
 use App\Models\Task;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
+use Livewire\Attributes\Redirect;
 
 class TaskForm extends Component
 {
@@ -75,7 +76,8 @@ class TaskForm extends Component
     );
   }
 
-  public function save(): void
+  #[Redirect]
+  public function save()
   {
     $this->validate([
       'title' => 'required|string|max:255',
