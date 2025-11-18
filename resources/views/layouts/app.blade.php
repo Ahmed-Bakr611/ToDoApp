@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Taskly - @yield('title')</title>
   @vite('resources/css/app.css')
+  @livewireStyles
 </head>
 
 <body class="bg-gradient-to-br from-[#667eea] to-[#764ba2] min-h-screen p-5 text-gray-900 font-sans">
@@ -101,6 +102,8 @@
       </div>
     </main>
   </div>
+
+  @livewireScripts
 </body>
 
 </html>
