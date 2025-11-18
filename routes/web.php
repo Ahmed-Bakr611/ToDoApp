@@ -7,6 +7,8 @@ use App\Livewire\Auth\Register;
 use App\Livewire\Tasks\TaskList;
 use App\Livewire\Tasks\TaskForm;
 use App\Livewire\Tasks\TaskDetail;
+use App\Livewire\Tags\TagList;
+use App\Livewire\Tags\TagForm;
 use Illuminate\Support\Facades\Route;
 
 
@@ -25,11 +27,15 @@ Route::middleware('auth')->group(function () {
   // Task routes with Livewire
   Route::get('/tasks', TaskList::class)->name('tasks.index');
   Route::get('/tasks/create', TaskForm::class)->name('tasks.create');
-  Route::post('/tasks', [UserController::class, 'logout']); // Handled by Livewire
   Route::get('/tasks/{task}', TaskDetail::class)->name('tasks.show');
   Route::get('/tasks/{task}/edit', TaskForm::class)->name('tasks.edit');
 
-  // Tag routes (keep API endpoints for task form autocomplete)
+  // Tag routes with Livewire
+  Route::get('/tags', TagList::class)->name('tags.index');
+  Route::get('/tags/create', TagForm::class)->name('tags.create');
+  Route::get('/tags/{tag}/edit', TagForm::class)->name('tags.edit');
+  Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('tags.destroy');
+
+  // Keep search endpoint for task form autocomplete
   Route::get('/tags/search', [TagController::class, 'search'])->name('tags.search');
-  Route::resource('tags', TagController::class)->only(['index', 'edit', 'update', 'destroy']);
 });
