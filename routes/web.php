@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\TagController;
-use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
 use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
+use App\Livewire\Tasks\TaskList;
+use App\Livewire\Tasks\TaskForm;
+use App\Livewire\Tasks\TaskDetail;
 use Illuminate\Support\Facades\Route;
 
 
@@ -20,13 +22,14 @@ Route::middleware('auth')->group(function () {
 
   Route::post('/logout', [UserController::class, 'logout'])->name('logout');
 
-  Route::patch('/tasks/{task}/toggle', [TaskController::class, 'toggleComplete'])
-    ->name('tasks.toggle');
+  // Task routes with Livewire
+  Route::get('/tasks', TaskList::class)->name('tasks.index');
+  Route::get('/tasks/create', TaskForm::class)->name('tasks.create');
+  Route::post('/tasks', [UserController::class, 'logout']); // Handled by Livewire
+  Route::get('/tasks/{task}', TaskDetail::class)->name('tasks.show');
+  Route::get('/tasks/{task}/edit', TaskForm::class)->name('tasks.edit');
 
+  // Tag routes (keep API endpoints for task form autocomplete)
   Route::get('/tags/search', [TagController::class, 'search'])->name('tags.search');
-  Route::get('/tags/fetch', [TagController::class, 'fetch'])->name('tags.fetch');
-
-  Route::resource('tasks', TaskController::class);
-
   Route::resource('tags', TagController::class)->only(['index', 'edit', 'update', 'destroy']);
 });
