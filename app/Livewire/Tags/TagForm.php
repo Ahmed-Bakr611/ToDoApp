@@ -25,7 +25,6 @@ class TagForm extends Component
     return view('livewire.tags.tag-form');
   }
 
-  #[Redirect]
   public function save()
   {
     $this->validate([

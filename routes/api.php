@@ -25,5 +25,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Tasks
     Route::patch('/tasks/{task}/toggle', [TaskController::class, 'toggleComplete']);
-    Route::apiResource('tasks', TaskController::class);
+    Route::apiResource('tasks', TaskController::class, ['names' => [
+        'index' => 'api.tasks.index',
+        'store' => 'api.tasks.store',
+        'show' => 'api.tasks.show',
+        'update' => 'api.tasks.update',
+        'destroy' => 'api.tasks.destroy',
+    ]]);
 });

@@ -1,62 +1,80 @@
-<div class="min-h-screen bg-gradient-to-br from-[#667eea] via-[#6f7ee5] to-[#764ba2] relative overflow-hidden">
-  <!-- Decorative elements -->
-  <div class="absolute top-0 left-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2">
+<div class="max-w-md mx-auto">
+  <div class="text-center mb-8">
+    <h3 class="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h3>
+    <p class="text-gray-600">Sign in to continue managing your tasks</p>
   </div>
-  <div class="absolute bottom-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl translate-x-1/2 translate-y-1/2">
-  </div>
 
-  <!-- Main content -->
-  <div class="flex items-center justify-center min-h-screen relative z-10 px-4">
-    <div class="w-full max-w-md">
-      <!-- Card with backdrop blur -->
-      <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20">
-        <div class="text-center mb-8">
-          <h1
-            class="text-4xl font-bold bg-gradient-to-r from-[#667eea] to-[#764ba2] bg-clip-text text-transparent mb-2">
-            Welcome Back</h1>
-          <p class="text-sm text-gray-600">Sign in to your account to continue</p>
-        </div>
-
-        <form wire:submit="login" class="space-y-5">
-          <div>
-            <label for="email" class="block text-sm font-semibold text-gray-800">Email Address</label>
-            <input wire:model="email" type="email" id="email"
-              class="mt-2 w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-[#667eea] focus:ring-2 focus:ring-[#667eea]/20 transition @error('email') border-red-500 @enderror"
-              placeholder="you@example.com" />
-            @error('email')
-              <p class="mt-1 text-sm text-red-500 font-medium">{{ $message }}</p>
-            @enderror
-          </div>
-
-          <div>
-            <label for="password" class="block text-sm font-semibold text-gray-800">Password</label>
-            <input wire:model="password" type="password" id="password"
-              class="mt-2 w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-[#667eea] focus:ring-2 focus:ring-[#667eea]/20 transition @error('password') border-red-500 @enderror"
-              placeholder="••••••••" />
-            @error('password')
-              <p class="mt-1 text-sm text-red-500 font-medium">{{ $message }}</p>
-            @enderror
-          </div>
-
-          <div class="flex items-center">
-            <input wire:model="remember" type="checkbox" id="remember"
-              class="w-4 h-4 rounded border-gray-300 text-[#667eea] focus:ring-[#667eea]" />
-            <label for="remember" class="ml-2 text-sm text-gray-700 font-medium">Remember me</label>
-          </div>
-
-          <button type="submit"
-            class="w-full bg-gradient-to-r from-[#667eea] to-[#764ba2] text-white font-semibold py-3 rounded-lg hover:shadow-xl transition transform hover:-translate-y-0.5 active:translate-y-0">
-            Sign In
-          </button>
-        </form>
-
-        <div class="text-center mt-6 pt-6 border-t border-gray-300">
-          <p class="text-sm text-gray-700">
-            Don't have an account?
-            <a href="{{ route('register') }}" class="text-[#667eea] font-semibold hover:underline">Create one</a>
-          </p>
-        </div>
-      </div>
+  @if (session('status'))
+    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
+      <p class="text-sm">{{ session('status') }}</p>
     </div>
+  @endif
+
+  @if ($errors->any())
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+      <p class="font-semibold text-sm mb-2">Whoops! There were some problems with your input.</p>
+      <ul class="list-disc list-inside space-y-1">
+        @foreach ($errors->all() as $error)
+          <li class="text-sm">{{ $error }}</li>
+        @endforeach
+      </ul>
+    </div>
+  @endif
+
+  <form wire:submit="login" class="space-y-5">
+    <div>
+      <label for="email" class="block text-sm font-semibold text-gray-800 mb-2">
+        Email Address
+      </label>
+      <input type="email" id="email" wire:model="email"
+        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-[#667eea] focus:ring-4 focus:ring-[#667eea]/10 transition-all @error('email') border-red-500 @enderror"
+        placeholder="john@example.com" required autofocus>
+      @error('email')
+        <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+      @enderror
+    </div>
+
+    <div>
+      <label for="password" class="block text-sm font-semibold text-gray-800 mb-2">
+        Password
+      </label>
+      <input type="password" id="password" wire:model="password"
+        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-[#667eea] focus:ring-4 focus:ring-[#667eea]/10 transition-all @error('password') border-red-500 @enderror"
+        placeholder="Enter your password" required>
+      @error('password')
+        <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+      @enderror
+    </div>
+
+    <div class="flex items-center justify-between">
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" id="remember" wire:model="remember"
+          class="w-4 h-4 text-[#667eea] border-gray-300 rounded focus:ring-[#667eea] cursor-pointer">
+        <span class="text-sm text-gray-600">Remember me</span>
+      </label>
+
+      @if (Route::has('password.request'))
+        <a href="{{ route('password.request') }}"
+          class="text-sm text-[#667eea] hover:text-[#5568d3] font-semibold hover:underline">
+          Forgot password?
+        </a>
+      @endif
+    </div>
+
+    <button type="submit"
+      class="w-full bg-gradient-to-r from-[#667eea] to-[#764ba2] hover:from-[#5568d3] hover:to-[#6a3f8f] text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none mt-2"
+      wire:loading.attr="disabled">
+      <span wire:loading.remove>Sign In</span>
+      <span wire:loading>Signing In...</span>
+    </button>
+  </form>
+
+  <div class="text-center mt-6 pt-6 border-t border-gray-200">
+    <p class="text-gray-600">
+      Don't have an account?
+      <a href="{{ route('register') }}" class="text-[#667eea] hover:text-[#5568d3] font-semibold hover:underline">
+        Create one now
+      </a>
+    </p>
   </div>
 </div>

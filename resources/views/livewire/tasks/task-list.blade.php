@@ -48,7 +48,7 @@
     <!-- Tasks Grid -->
     <div class="grid gap-4">
       @foreach ($tasks as $task)
-        <div class="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-all duration-200 {{ $task->completed ? 'bg-gray-50 opacity-75' : '' }}">
+        <div wire:key="task-{{ $task->id }}" class="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-all duration-200 {{ $task->completed ? 'bg-gray-50 opacity-75' : '' }}">
           <div class="flex items-start gap-4">
             <!-- Checkbox -->
             <div class="flex-shrink-0 mt-1">
@@ -162,14 +162,6 @@
           You haven't completed any tasks yet.
         @endif
       </p>
-      @if($tab === 'active')
-        <div class="mt-6">
-          <a href="{{ route('tasks.create') }}" 
-             class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-            Create Task
-          </a>
-        </div>
-      @endif
     </div>
   @endif
 </div>

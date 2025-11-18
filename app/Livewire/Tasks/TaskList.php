@@ -3,8 +3,8 @@
 namespace App\Livewire\Tasks;
 
 use App\Models\Task;
+use App\Services\TaskService;
 use Illuminate\Contracts\View\View;
-use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -12,50 +12,53 @@ class TaskList extends Component
 {
   use WithPagination;
 
-  #[Url]
   public string $tab = 'active';
+
+  private readonly TaskService $taskService;
+
+  public function boot(TaskService $taskService): void
+  {
+    // Livewire injects the service here on hydration AND first load
+    $this->taskService = $taskService;
+  }
 
   public function render(): View
   {
-    $tasks = auth()->user()->tasks();
-
-    if ($this->tab === 'completed') {
-      $tasks = $tasks->where('completed', true);
-    } else {
-      $tasks = $tasks->where('completed', false);
-    }
-
-    $tasks = $tasks->with('tags')->latest()->paginate(10);
-
-    $activeCount = auth()->user()->tasks()->where('completed', false)->count();
-    $completedCount = auth()->user()->tasks()->where('completed', true)->count();
+    $data = $this->taskService->getTasksWithCounts(
+      $this->tab === 'completed' ? 'completed' : 'active'
+    );
 
     return view('livewire.tasks.task-list', [
-      'tasks' => $tasks,
-      'activeCount' => $activeCount,
-      'completedCount' => $completedCount,
+      'tasks' => $data['tasks'],
+      'activeCount' => $data['counts']->active_count ?? 0,
+      'completedCount' => $data['counts']->completed_count ?? 0,
     ]);
   }
-
   public function setTab(string $tab): void
   {
     $this->tab = $tab;
     $this->resetPage();
   }
 
-  public function toggleTask(Task $task): void
+  public function toggleTask(int $taskId): void
   {
+    $task = Task::findOrFail($taskId);
+
     $this->authorize('update', $task);
 
-    $task->update(['completed' => !$task->completed]);
+    $this->taskService->toggleComplete($task);
+
     $this->dispatch('task-toggled', taskId: $task->id);
   }
 
-  public function deleteTask(Task $task): void
+  public function deleteTask(int $taskId): void
   {
+    $task = Task::findOrFail($taskId);
+
     $this->authorize('delete', $task);
 
     $task->delete();
-    $this->dispatch('task-deleted', taskId: $task->id);
+
+    $this->dispatch('task-deleted', taskId: $taskId);
   }
 }

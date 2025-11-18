@@ -84,21 +84,7 @@
         </div>
       </div>
 
-      <!-- Actions -->
-      <div class="flex gap-3 pt-6 mt-6 border-t border-gray-200">
-        <a href="{{ route('tasks.index') }}"
-          class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-md text-center transition-colors">
-          Back to Tasks
-        </a>
-        <a href="{{ route('tasks.edit', $task->id) }}"
-          class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md text-center transition-colors">
-          Edit Task
-        </a>
-        <button wire:click="deleteTask" wire:confirm="Are you sure you want to delete this task?"
-          class="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-md text-center transition-colors">
-          Delete Task
-        </button>
-      </div>
+
     </div>
   </div>
 </div>
