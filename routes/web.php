@@ -3,17 +3,16 @@
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
+use App\Livewire\Auth\Login;
+use App\Livewire\Auth\Register;
 use Illuminate\Support\Facades\Route;
 
 
 
 // Guest routes (only accessible when not authenticated)
 Route::middleware('guest')->group(function () {
-  Route::get('/register', [UserController::class, 'showRegisterForm'])->name('register');
-  Route::post('/register', [UserController::class, 'register']);
-
-  Route::get('/login', [UserController::class, 'showLoginForm'])->name('login');
-  Route::post('/login', [UserController::class, 'login']);
+  Route::get('/register', Register::class)->name('register');
+  Route::get('/login', Login::class)->name('login');
 });
 
 Route::middleware('auth')->group(function () {
